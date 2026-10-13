@@ -10,3 +10,7 @@ coverage/
 Thumbs.db
 .vite/
 generated/
+
+# Real ticketing exports and merged workbooks contain fan PII — never commit
+*.xlsx
+*.csv
