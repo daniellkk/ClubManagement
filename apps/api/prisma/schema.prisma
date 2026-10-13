@@ -1,0 +1,541 @@
+// ClubManagement — fan club CRM domain model.
+// Multi-tenant: every business entity hangs off a Club.
+// Compliance (Israel PPL + Amendment 13) is first-class: consent flags & log,
+// message categories, suppression, soft-delete for erasure propagation, audit log.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── Tenancy & admin users ───────────────────────────
+
+model Club {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String // e.g. "הפועל באר שבע"
+  // Per-tenant theming (design tokens) — defaults are the Hapoel palette
+  primaryColor String   @default("#dc2626")
+  sidebarColor String   @default("#1a1a1a")
+  // Inline data URL (small PNG/JPEG/WebP/SVG) uploaded in the onboarding wizard
+  logoUrl      String?
+  // Ticketing short code chosen in the wizard, e.g. "HFS" (see auth/team-symbols.ts)
+  symbol       String?
+  // Set when the first manager completes the onboarding wizard
+  onboardedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  adminUsers     AdminUser[]
+  seasons        Season[]
+  fans           Fan[]
+  tags           Tag[]
+  games          Game[]
+  campaigns      Campaign[]
+  messages       MessageLog[]
+  importJobs     ImportJob[]
+  activityEvents ActivityEvent[]
+  auditLogs      AuditLog[]
+}
+
+enum AdminRole {
+  OWNER
+  ADMIN
+  STAFF
+  VIEWER
+}
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  clubId       String
+  club         Club      @relation(fields: [clubId], references: [id])
+  email        String    @unique
+  // Nullable: Google-only admins never get a password
+  passwordHash String?
+  googleId     String?   @unique
+  avatarUrl    String?
+  name         String
+  role         AdminRole @default(STAFF)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  importJobs     ImportJob[]
+  activityEvents ActivityEvent[]
+  auditLogs      AuditLog[]
+
+  @@index([clubId])
+}
+
+// ─────────────────────────────── Seasons & fans ──────────────────────────────
+
+model Season {
+  id        String   @id @default(cuid())
+  clubId    String
+  club      Club     @relation(fields: [clubId], references: [id])
+  name      String // "2025/26"
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+
+  games         Game[]
+  subscriptions Subscription[]
+
+  @@unique([clubId, name])
+}
+
+enum FanStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum Channel {
+  EMAIL
+  SMS
+  WHATSAPP
+  PUSH
+}
+
+model Fan {
+  id             String    @id @default(cuid())
+  clubId         String
+  club           Club      @relation(fields: [clubId], references: [id])
+  customerNumber String // מספר לקוח — external CRM/Excel key
+  firstName      String
+  lastName       String
+  birthDate      DateTime? // preferred; enables birthday automations
+  birthMonth     Int? // 1–12, kept in sync with birthDate for "birthday this month" audiences
+  age            Int? // fallback when imports only carry age
+  city           String?
+  email          String?
+  phone          String?
+  status         FanStatus @default(ACTIVE)
+  memberSince    DateTime?
+  avatarUrl      String?
+
+  // Carried over from the previous CRM / ticketing export
+  legacyId   String? // oldId
+  oldEmail   String?
+  seatArea   String? // מקום שמור של המנוי
+  seatRow    String?
+  seatNumber String?
+  importedAt DateTime?
+
+  // Engagement
+  engagementScore Int       @default(0) // 0–100; tiers: ≥80 high, 60–79 medium, <60 low
+  appLastLoginAt  DateTime?
+  appSessionCount Int       @default(0)
+  lastActivityAt  DateTime?
+
+  // Consent & communication compliance (club is controller; we enforce its switches)
+  emailOptIn       Boolean   @default(false)
+  smsOptIn         Boolean   @default(false)
+  whatsappOptIn    Boolean   @default(false)
+  pushOptIn        Boolean   @default(false)
+  preferredChannel Channel?
+  unsubscribedAt   DateTime? // global marketing suppression — overrides all opt-ins
+
+  // Erasure: soft-delete first, hard-purge job later (cascades to derived data)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions        Subscription[]
+  attendances          Attendance[]
+  ticketPurchases      TicketPurchase[]
+  shuttleRegistrations ShuttleRegistration[]
+  fanTags              FanTag[]
+  consentLogs          ConsentLog[]
+  messages             MessageLog[]
+
+  @@unique([clubId, customerNumber])
+  @@index([clubId, status])
+  @@index([clubId, city])
+  @@index([clubId, engagementScore])
+  @@index([clubId, birthMonth])
+}
+
+model Tag {
+  id     String  @id @default(cuid())
+  clubId String
+  club   Club    @relation(fields: [clubId], references: [id])
+  name   String
+  color  String?
+
+  fanTags FanTag[]
+
+  @@unique([clubId, name])
+}
+
+model FanTag {
+  fanId String
+  fan   Fan    @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  tagId String
+  tag   Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([fanId, tagId])
+}
+
+// ───────────────────────────── Subscriptions (מנויים) ────────────────────────
+
+enum SubscriptionStatus {
+  ACTIVE
+  PENDING
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PAID
+  PENDING
+  OVERDUE
+  REFUNDED
+}
+
+model Subscription {
+  id            String             @id @default(cuid())
+  fanId         String
+  fan           Fan                @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  seasonId      String
+  season        Season             @relation(fields: [seasonId], references: [id])
+  type          String // e.g. "רגיל", "VIP", "זהב", "סטודנט"
+  seat          String?
+  price         Decimal?           @db.Decimal(10, 2)
+  status        SubscriptionStatus @default(ACTIVE)
+  paymentStatus PaymentStatus      @default(PENDING)
+  autoRenew     Boolean            @default(false)
+  renewedFromId String? // previous season's subscription → renewal funnel
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@unique([fanId, seasonId])
+  @@index([seasonId, status])
+}
+
+// ─────────────────────────────── Games & matchday ────────────────────────────
+
+enum Venue {
+  HOME
+  AWAY
+}
+
+enum Competition {
+  LEAGUE
+  CUP
+  EUROPE
+  FRIENDLY
+  OTHER
+}
+
+enum GameStatus {
+  SCHEDULED
+  PLAYED
+  POSTPONED
+  CANCELLED
+}
+
+model Game {
+  id          String      @id @default(cuid())
+  clubId      String
+  club        Club        @relation(fields: [clubId], references: [id])
+  seasonId    String
+  season      Season      @relation(fields: [seasonId], references: [id])
+  venue       Venue
+  competition Competition @default(LEAGUE)
+  opponent    String
+  stadium     String?
+  kickoffAt   DateTime
+  status      GameStatus  @default(SCHEDULED)
+
+  // Aggregates (denormalized for dashboards; source of truth is the relations
+  // when per-fan data exists, but Excel imports may only carry these totals)
+  capacity            Int?
+  ticketsSold         Int      @default(0)
+  subscriberAttendees Int      @default(0)
+  totalAttendance     Int      @default(0)
+  revenue             Decimal? @db.Decimal(12, 2)
+
+  attendances     Attendance[]
+  ticketPurchases TicketPurchase[]
+  shuttles        Shuttle[]
+  campaigns       Campaign[]
+
+  @@index([clubId, seasonId, venue])
+  @@index([clubId, kickoffAt])
+}
+
+enum AttendanceSource {
+  SUBSCRIPTION
+  TICKET
+  SHUTTLE
+  MANUAL
+  IMPORT
+}
+
+model Attendance {
+  id          String           @id @default(cuid())
+  fanId       String
+  fan         Fan              @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  gameId      String
+  game        Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  attended    Boolean          @default(true)
+  source      AttendanceSource @default(MANUAL)
+  checkedInAt DateTime?
+
+  @@unique([fanId, gameId])
+  @@index([gameId])
+}
+
+enum TicketBuyerType {
+  SUBSCRIBER
+  NON_SUBSCRIBER
+  VIP
+}
+
+model TicketPurchase {
+  id          String           @id @default(cuid())
+  gameId      String
+  game        Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  fanId       String? // nullable: imports may carry anonymous aggregate buyers
+  fan         Fan?             @relation(fields: [fanId], references: [id], onDelete: SetNull)
+  buyerType   TicketBuyerType?
+  quantity    Int              @default(1)
+  totalPrice  Decimal?         @db.Decimal(10, 2)
+  purchasedAt DateTime         @default(now())
+
+  @@index([gameId])
+  @@index([fanId])
+}
+
+// ─────────────────────────────── Shuttles (הסעות) ────────────────────────────
+
+model Shuttle {
+  id                String   @id @default(cuid())
+  gameId            String
+  game              Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  departureLocation String
+  departureAt       DateTime
+  capacity          Int
+  price             Decimal? @db.Decimal(10, 2)
+
+  registrations ShuttleRegistration[]
+
+  @@index([gameId])
+}
+
+enum ShuttleRegStatus {
+  REGISTERED
+  CANCELLED
+  ATTENDED
+  NO_SHOW
+}
+
+model ShuttleRegistration {
+  id        String           @id @default(cuid())
+  shuttleId String
+  shuttle   Shuttle          @relation(fields: [shuttleId], references: [id], onDelete: Cascade)
+  fanId     String
+  fan       Fan              @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  seats     Int              @default(1)
+  status    ShuttleRegStatus @default(REGISTERED)
+  createdAt DateTime         @default(now())
+
+  @@unique([shuttleId, fanId])
+}
+
+// ─────────────────────── Campaigns, messaging & consent ──────────────────────
+
+enum MessageCategory {
+  TRANSACTIONAL // service messages — always allowed
+  GOODWILL // birthday / we-missed-you, no promotion — direct-mailing disclosure rules
+  MARKETING // promotional — requires channel opt-in (Spam Law §30A) + unsubscribe
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+  PAUSED
+}
+
+/** MANUAL = run from the UI, ONCE = at scheduledAt, CRON = cronExpression in timezone */
+enum ScheduleType {
+  MANUAL
+  ONCE
+  CRON
+}
+
+model Campaign {
+  id           String          @id @default(cuid())
+  clubId       String
+  club         Club            @relation(fields: [clubId], references: [id])
+  name         String
+  channel      Channel
+  category     MessageCategory @default(MARKETING)
+  status       CampaignStatus  @default(DRAFT)
+  subject      String?
+  body         String
+  // Serialized segment filter (city/tags/score/missed-games…) — reproducibility
+  // of WHO was targeted and WHY (profiling transparency)
+  segmentQuery Json?
+  gameId       String? // optional link: matchday campaign
+  game         Game?           @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  scheduledAt  DateTime?
+  sentAt       DateTime?
+  reach        Int             @default(0)
+
+  // Delivery through InforU (SMS sender name / WhatsApp template)
+  sender     String?
+  templateId String?
+
+  // Scheduling — every campaign owns one cron job, re-registered on every save
+  scheduleType   ScheduleType @default(MANUAL)
+  cronExpression String?
+  timezone       String       @default("Asia/Jerusalem")
+  enabled        Boolean      @default(true)
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  lastError      String?
+  lastRunSummary Json?
+  runCount        Int @default(0)
+  sentCount       Int @default(0)
+  failedCount     Int @default(0)
+  suppressedCount Int @default(0)
+  createdById     String?
+
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  messages MessageLog[]
+
+  @@index([clubId, status])
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  FAILED
+  SUPPRESSED // blocked pre-send: no opt-in / unsubscribed — kept as compliance evidence
+}
+
+model MessageLog {
+  id         String          @id @default(cuid())
+  clubId     String
+  club       Club            @relation(fields: [clubId], references: [id])
+  fanId      String
+  fan        Fan             @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  campaignId String?
+  campaign   Campaign?       @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  channel    Channel
+  category   MessageCategory
+  status     MessageStatus   @default(QUEUED)
+  subject    String?
+  body       String?
+  // WHY this fan got this message (e.g. "birthday", "missed_3_games", "campaign:<id>")
+  triggerReason String?
+  // Address the message went to (E.164 phone / email) and the InforU batch it was part of
+  recipient       String?
+  providerBatchId String?
+  error           String?
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([fanId])
+  @@index([clubId, category, createdAt])
+  @@index([campaignId, status])
+}
+
+enum ConsentAction {
+  OPT_IN
+  OPT_OUT
+}
+
+enum ConsentSource {
+  IMPORT
+  ADMIN_UI
+  FAN_REQUEST
+  SYSTEM
+}
+
+// Immutable consent ledger — proves lawful basis per fan/channel over time
+model ConsentLog {
+  id        String        @id @default(cuid())
+  fanId     String
+  fan       Fan           @relation(fields: [fanId], references: [id], onDelete: Cascade)
+  channel   Channel? // null = global (full unsubscribe)
+  action    ConsentAction
+  source    ConsentSource
+  note      String?
+  createdAt DateTime      @default(now())
+
+  @@index([fanId, createdAt])
+}
+
+// ───────────────────────── Imports, activity & audit ─────────────────────────
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model ImportJob {
+  id           String       @id @default(cuid())
+  clubId       String
+  club         Club         @relation(fields: [clubId], references: [id])
+  fileName     String
+  status       ImportStatus @default(PENDING)
+  totalRows    Int          @default(0)
+  importedRows Int          @default(0)
+  errorRows    Int          @default(0)
+  errors       Json?
+  createdById  String?
+  createdBy    AdminUser?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime     @default(now())
+  completedAt  DateTime?
+
+  @@index([clubId, createdAt])
+}
+
+// System events feed (main dashboard "פעילות אחרונה")
+model ActivityEvent {
+  id          String     @id @default(cuid())
+  clubId      String
+  club        Club       @relation(fields: [clubId], references: [id])
+  type        String // "fan.created" | "import.completed" | "campaign.sent" | ...
+  description String
+  actorId     String?
+  actor       AdminUser? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  metadata    Json?
+  createdAt   DateTime   @default(now())
+
+  @@index([clubId, createdAt])
+}
+
+// Who changed what — required posture for Medium security tier (access logging)
+model AuditLog {
+  id        String     @id @default(cuid())
+  clubId    String
+  club      Club       @relation(fields: [clubId], references: [id])
+  actorId   String?
+  actor     AdminUser? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action    String // "create" | "update" | "delete" | "export" | "view"
+  entity    String // "Fan" | "Subscription" | ...
+  entityId  String?
+  before    Json?
+  after     Json?
+  createdAt DateTime   @default(now())
+
+  @@index([clubId, createdAt])
+  @@index([entity, entityId])
+}

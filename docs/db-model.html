@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fan CRM Data Model</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #f6f7f9; --surface: #ffffff; --surface-2: #eef1f5;
+    --ink: #14213d; --ink-2: #3b4661; --muted: #6b7489;
+    --line: #d7dce5; --line-strong: #b9c2d0;
+    --brand: #dc2626; --brand-soft: #fdecec;
+    --ext: #0e7c86; --ext-soft: #e3f4f5;
+    --code-bg: #eceff4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0f1420; --surface: #171d2c; --surface-2: #1f2637; --ink: #e6e9f0; --ink-2: #c3c9d6;
+      --muted: #8f98ab; --line: #2b3346; --line-strong: #3a4459; --brand: #f05252; --brand-soft: #3a1d22;
+      --ext: #3fbfcb; --ext-soft: #12303a; --code-bg: #232a3b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0f1420; --surface: #171d2c; --surface-2: #1f2637; --ink: #e6e9f0; --ink-2: #c3c9d6;
+    --muted: #8f98ab; --line: #2b3346; --line-strong: #3a4459; --brand: #f05252; --brand-soft: #3a1d22;
+    --ext: #3fbfcb; --ext-soft: #12303a; --code-bg: #232a3b;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; font-size: 16px; line-height: 1.6; }
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace; font-size: .875em; }
+  code { background: var(--code-bg); padding: .1em .35em; border-radius: 4px; }
+  h1, h2 { font-family: "Archivo", "IBM Plex Sans", sans-serif; line-height: 1.15; margin: 0; text-wrap: balance; }
+  h1 { font-size: clamp(2rem, 4vw, 2.5rem); font-weight: 800; letter-spacing: -.02em; }
+  h2 { font-size: 1.35rem; font-weight: 700; margin-top: 2.75rem; padding-top: .5rem; border-top: 2px solid var(--ink); }
+  p { max-width: 70ch; margin: .75rem 0; }
+  ul { padding-left: 1.2rem; max-width: 72ch; } li { margin: .35rem 0; }
+  .muted { color: var(--muted); }
+  .page { max-width: 1100px; margin: 0 auto; padding: 2.5rem 2rem 5rem; }
+  @media (max-width: 700px) { .page { padding: 1.5rem 1rem 4rem; } }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .lede { font-size: 1.1rem; color: var(--ink-2); max-width: 62ch; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; font-size: .85rem; color: var(--ink-2); margin: .75rem 0; }
+  .swatch { display: inline-block; width: .8em; height: .8em; border-radius: 2px; vertical-align: -.05em; margin-right: .4em; border: 1px solid var(--line-strong); }
+  .sw-core { background: var(--surface-2); } .sw-ext { background: var(--ext-soft); border-color: var(--ext); }
+
+  .frame { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+  svg.er { display: block; width: 100%; height: auto; min-width: 880px; color: var(--ink-2); font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  .er .bg { fill: var(--surface); stroke: var(--line-strong); }
+  .er .hd { fill: var(--surface-2); } .er .ext .hd { fill: var(--ext-soft); }
+  .er text { fill: var(--ink); font-size: 11px; }
+  .er .name { font-family: "Archivo", sans-serif; font-weight: 700; font-size: 13px; }
+  .er .badge, .er .more { fill: var(--muted); font-size: 9.5px; }
+  .er .key { fill: var(--brand); font-weight: 500; font-size: 9.5px; }
+  .er .sep { stroke: var(--line); }
+  .er .link { fill: none; stroke: var(--ink-2); stroke-width: 1.2; }
+  .er .lbl { font-size: 10px; fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+
+  table.plain { border-collapse: collapse; width: 100%; font-size: .9rem; margin-top: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  table.plain th { text-align: left; font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: .55rem .9rem; background: var(--surface-2); }
+  table.plain td { padding: .55rem .9rem; border-top: 1px solid var(--line); vertical-align: top; }
+  table.plain td:first-child { font-family: "IBM Plex Mono", monospace; font-size: .85rem; white-space: nowrap; }
+  table.plain td.k { font-family: "IBM Plex Mono", monospace; font-size: .8rem; color: var(--brand); white-space: nowrap; }
+  .wrap { overflow-x: auto; }
+  .src { display: inline-block; font-size: .72rem; padding: .05em .5em; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
+  .src.ext { background: var(--ext-soft); color: var(--ext); }
+
+  .callout { border-left: 3px solid var(--brand); background: var(--brand-soft); padding: .8rem 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; max-width: 72ch; }
+
+  details { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin: .6rem 0; }
+  details summary { cursor: pointer; padding: .7rem 1rem; font-family: "IBM Plex Mono", monospace; font-weight: 500; list-style: none; display: flex; justify-content: space-between; gap: 1rem; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary .p { font-family: "IBM Plex Sans", sans-serif; font-weight: 400; color: var(--muted); font-size: .85rem; }
+  details summary::after { content: "+"; color: var(--muted); }
+  details[open] summary::after { content: "–"; }
+  details[open] summary { border-bottom: 1px solid var(--line); }
+  details table { border-collapse: collapse; width: 100%; font-size: .85rem; min-width: 520px; }
+  details td { padding: .32rem .9rem; border-top: 1px solid var(--line); vertical-align: top; }
+  details tr:first-child td { border-top: 0; }
+  details td.c { font-family: "IBM Plex Mono", monospace; font-size: .8rem; white-space: nowrap; }
+  details td.t { font-family: "IBM Plex Mono", monospace; font-size: .78rem; color: var(--muted); white-space: nowrap; }
+  details td.k { font-family: "IBM Plex Mono", monospace; font-size: .75rem; color: var(--brand); white-space: nowrap; }
+  details td.n { color: var(--ink-2); font-size: .82rem; }
+  details .foot { padding: .5rem .9rem .7rem; font-size: .8rem; color: var(--muted); border-top: 1px solid var(--line); }
+</style>
+
+<style>
+  @page { size: A4 landscape; margin: 12mm; }
+  @media print {
+    body { font-size: 12.5px; background: #fff; }
+    .page { max-width: none; padding: 0; }
+    .frame, .wrap { overflow: visible; }
+    svg.er { min-width: 0; }
+    details, .frame { break-inside: avoid; }
+    table.plain tr { break-inside: avoid; }
+    details summary::after { content: ""; }
+    h2 { break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="eyebrow">Hapoel Be'er Sheva · fan-club CRM · database</div>
+  <h1>Fan CRM Data Model</h1>
+  <p class="lede">9 tables. <b>Fan</b> and <b>FanSeason</b> are the merged Excel. Games and tickets are pulled from Eventim Inhouse, attendance from Fortress, and WooCommerce orders and app accounts are matched by <b>customerId</b> (Eventim <code>CustNr</code>), email or phone.</p>
+
+  <div class="legend">
+    <span><i class="swatch sw-core"></i>ours, from the Excel</span>
+    <span><i class="swatch sw-ext"></i>copied from Eventim / Fortress / WooCommerce / app</span>
+    <span><span class="mono">PK</span> primary key · <span class="mono">FK</span> link to another table · <span class="mono">UK</span> unique</span>
+  </div>
+  <div class="frame" id="er"></div>
+  <p class="muted">Each line is a link: the crow's foot is the "many" side, the label is the column that holds the link. Only the main columns are drawn; the full lists are at the bottom.</p>
+
+  <h2>What each table is</h2>
+  <div class="wrap"><table class="plain">
+    <thead><tr><th>Table</th><th>One row per</th><th>Holds</th><th>Comes from</th><th>Key</th></tr></thead>
+    <tbody>
+      <tr><td>Fan</td><td>customer</td><td>name, email, mobile, phone, address, birthday, old CRM id, consent switches, engagement score, first seen / last activity / last app login, where the row came from</td><td><span class="src">Excel</span></td><td class="k">customerId</td></tr>
+      <tr><td>Season</td><td>season</td><td>2024/25 · 2025/26 · 2026/27, which one is current</td><td><span class="src">Excel "Season"</span></td><td class="k">name</td></tr>
+      <tr><td>FanSeason</td><td>customer × season</td><td>the merged Excel row: series and its tier (regular / silver / VIP), seats, blocks, prices, orders, pay type, years, season tickets, tickets, total sales, and a computed status (subscriber / new / returned / churned)</td><td><span class="src">Excel</span></td><td class="k">fanId + seasonId</td></tr>
+      <tr><td>Game</td><td>Eventim event</td><td>title, date, venue, home/away, competition, the Fortress product code and the last-fetch timestamp used as the sync cursor</td><td><span class="src ext">Eventim SearchEvents</span></td><td class="k">eventimEventId</td></tr>
+      <tr><td>Ticket</td><td>Eventim ticket (one barcode)</td><td>customer no., order, row, seat, area, price, sales type, status, booking date, and whether it is a season-ticket seat</td><td><span class="src ext">Eventim FetchTicketData</span></td><td class="k">gameId + barcode</td></tr>
+      <tr><td>Attendance</td><td>customer × game</td><td>scanned in or not, turnstile and time; empty until the Fortress scan log is connected</td><td><span class="src ext">Fortress scan log</span></td><td class="k">fanId + gameId</td></tr>
+      <tr><td>StoreOrder</td><td>WooCommerce order</td><td>order number, dates, status, totals, payment method, channel, the billing name / email / phone and the customer number it was matched with</td><td><span class="src ext">WooCommerce /orders</span></td><td class="k">wooOrderId</td></tr>
+      <tr><td>StoreOrderItem</td><td>order line</td><td>product and variation id, sku, name, category, quantity, unit price, line total — what the store dashboard groups by</td><td><span class="src ext">WooCommerce line_items + /products</span></td><td class="k">orderId + wooLineItemId</td></tr>
+      <tr><td>AppUser</td><td>app account</td><td>last login, logins, sessions and average session length in 30 days, push token, and the customerId / email / phone it was matched with</td><td><span class="src ext">app</span></td><td class="k">appUserId</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>How the outside systems link to a fan</h2>
+  <div class="callout"><b>customerId</b> is the Excel "Customer no." = Eventim <code>CustNr</code> = the number after the club prefix in Fortress member ids (<code>SHF_12345</code>). The club prefix in Eventim / Fortress is <b>SHF</b>. It is on every fan and never changes.</div>
+  <ul>
+    <li><b>Eventim Inhouse (EvaXML):</b> nightly, <code>SearchEvents</code> for the season window, then per game <code>FetchTicketData</code> from the game's stored timestamp. Every ticket carries <code>CustNr</code>, so rows attach to the fan directly. Season-ticket seats show up on every home game with <code>SubscriptionFlag</code>.</li>
+    <li><b>Fortress:</b> the scan log per game (barcode, turnstile, time) fills <code>Attendance</code>. That endpoint is not integrated anywhere yet; until it is, attendance stays unknown rather than assumed. <code>FullActiveExtract</code> on the member product gives card numbers per customer.</li>
+    <li><b>WooCommerce:</b> every order carries <code>billing.email</code>, <code>billing.phone</code> and a name; registered buyers also carry the WordPress <code>customer_id</code>, guests carry 0. WooCommerce has no customer number, so the club adds one optional field ("מספר לקוח") to the account / checkout, stored as order meta (<code>_club_customer_number</code>). We match <b>customer number → email → phone</b>, first hit wins, and write which one matched (<code>matchedBy</code>). No hit: the order is kept with an empty <code>fanId</code> and appears in an "unmatched" list to link by hand; a later order from the same email links the earlier ones too.</li>
+    <li><b>App:</b> same rule, <b>customerId → email → phone</b>, one <code>AppUser</code> row per account.</li>
+    <li><b>Loading the Excel:</b> one merged row = one <code>Fan</code> upsert (by Customer no.) + one <code>FanSeason</code> row for that season. Column names in <code>FanSeason</code> are the Excel's. Load the three seasons oldest first; the status column is then computed against the season before.</li>
+  </ul>
+  <h2>What every screen reads</h2>
+  <p>Every number and column the admin app shows today (on mock data) mapped to the tables above. "Computed" means a query or a nightly job, not a stored value.</p>
+  <div class="wrap"><table class="plain">
+    <thead><tr><th>Screen</th><th>Shows</th><th>Reads from</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>Dashboard</td><td>fans, active subscribers, not renewed, active in app, active campaigns + deltas</td><td>Fan · FanSeason.status · AppUser · Campaign</td><td>deltas compare with last month (Fan.createdAt) and last season (FanSeason)</td></tr>
+      <tr><td>Dashboard</td><td>fan growth by month</td><td>Fan.firstSeenAt</td><td>history before the CRM launch comes from the earliest season seat / ticket per fan</td></tr>
+      <tr><td>Dashboard</td><td>subscriber split · recent campaigns · recent activity · store summary</td><td>FanSeason.status · Campaign · ActivityEvent · StoreOrder + StoreOrderItem</td><td>ActivityEvent rows are written by imports, campaign runs, the game sync and the score job</td></tr>
+      <tr><td>Fans</td><td>table columns, Excel-style filters, export</td><td>Fan · FanSeason (tier, seats of the current season)</td><td>seat column = FanSeason.seats; "imported" badge = Fan.importedAt</td></tr>
+      <tr><td>Fan profile</td><td>details, score, consents, app activity, tags</td><td>Fan · AppUser · ConsentLog · Tag</td><td>"member since" = Fan.firstSeenAt</td></tr>
+      <tr><td>Fan profile</td><td>subscription card</td><td>FanSeason (tier, seats, price, pay type, seat status)</td><td>"payment status" (paid / pending / overdue) exists in no source; the card shows pay type and seat status instead</td></tr>
+      <tr><td>Fan profile</td><td>attendance totals, match history, purchases</td><td>Attendance · Game · StoreOrder + StoreOrderItem</td><td>attended = null renders as "unknown" until Fortress scans arrive</td></tr>
+      <tr><td>Subscriptions</td><td>KPIs, subscribers per season, renewal trend by month</td><td>FanSeason per Season · FanSeason.lastSeasonTicketAt</td><td>renewal % = status vs. previous season; the monthly curve uses the season-ticket purchase date</td></tr>
+      <tr><td>Subscriptions</td><td>churn table (years, last payment, priority, suggested action)</td><td>FanSeason.status = churned · numberOfYears · lastSeasonTicketAt · Fan</td><td>priority and suggested action are rules over score and years, computed on read</td></tr>
+      <tr><td>Home / away games</td><td>game table: subscribers, tickets, total, capacity, attended, revenue, status</td><td>Game · Ticket (isSubscription split) · Attendance</td><td>revenue = sum of Ticket.price; capacity on Game</td></tr>
+      <tr><td>Home / away games</td><td>KPIs: avg crowd, subscriber utilization, arrival %</td><td>Attendance · Ticket</td><td>need Fortress scans; away games are scanned by the host stadium, so away attendance may stay "tickets sold" only</td></tr>
+      <tr><td>Home / away games</td><td>top fans, buyer split, potential fans</td><td>Attendance · Ticket · AppUser · Fan.engagementScore · FanSeason.tier</td><td>preferred channel = the fan's first enabled opt-in</td></tr>
+      <tr><td>Behavior</td><td>segment / venue / period filters, KPIs, fan table</td><td>FanSeason · Attendance · Game (venue, kickoffAt) · AppUser</td><td>periods are date ranges over Game.kickoffAt; "last game" = latest played game per venue</td></tr>
+      <tr><td>Behavior</td><td>map and pie by city</td><td>Fan.town + a static city → coordinates lookup</td><td>the lookup is config (name, lat, lng), not fan data</td></tr>
+      <tr><td>Comparisons</td><td>seasons / games / opponents × attendance, tickets, revenue, subscribers, occupancy</td><td>Game · Ticket · Attendance · FanSeason</td><td>occupancy = attendance ÷ Game.capacity; opponent is the admin-set Game.opponent</td></tr>
+      <tr><td>Comparisons</td><td>wins / draws / losses per opponent</td><td>Game.goalsFor · goalsAgainst</td><td>Eventim has no results; entered by an admin or a results feed</td></tr>
+      <tr><td>Store</td><td>revenue, orders, avg order, top product, monthly, categories, recent orders</td><td>StoreOrder · StoreOrderItem</td><td>revenue = itemsTotal of PAID orders minus refunds; unmatched orders show the billing name</td></tr>
+      <tr><td>Campaigns</td><td>audience filters (segment, cities, tier, score, app users, birthday / missed games / inactive triggers), results, messages</td><td>Fan · FanSeason.tier · Attendance · AppUser · Campaign · MessageLog</td><td>the tier filter moves from Subscription.type to FanSeason.tier</td></tr>
+      <tr><td>Settings · onboarding</td><td>club, branding, admins, language</td><td>Club · AdminUser</td><td>unchanged</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>Nightly sync</h2>
+  <ol style="max-width:72ch">
+    <li><b>Games:</b> Eventim <code>SearchEvents</code> for the season dates → upsert <code>Game</code> by <code>eventimEventId</code>. Home / away comes from <code>VenueShortCode</code> (Turner = home); competition and opponent are set once by an admin.</li>
+    <li><b>Tickets:</b> per game, <code>FetchTicketData</code> with the stored timestamp → upsert <code>Ticket</code> by (game, barcode), then save the returned <code>NewTimestampUTC</code> on the game. Status V = valid, S = cancelled; rows with sales channel 6000 are skipped, as the current middleware does.</li>
+    <li><b>Attendance:</b> per played game, Fortress scan log → upsert <code>Attendance</code> by (fan, game). Member barcodes change their first digit on reprint, so match member rows by customer no. + row + seat, not by barcode.</li>
+    <li><b>Store:</b> WooCommerce <code>GET /wc/v3/orders?status=any&amp;modified_after=&lt;cursor&gt;&amp;per_page=100</code>, page by page → upsert <code>StoreOrder</code> by <code>wooOrderId</code> and its lines by <code>wooLineItemId</code>; the cursor is the newest <code>modifiedAt</code> we hold, so refunds and cancellations come through as updates. Line items carry no category, so <code>/products/{id}</code> is looked up once per product (cached) to fill <code>category</code>. Optional: the <code>order.created</code> / <code>order.updated</code> webhooks (HMAC-SHA256 signed) push the same upsert during the day.</li>
+    <li><b>Aggregates:</b> recompute <code>Game.ticketsSold</code> / <code>attendance</code> and the fan's engagement score. The club's own points rule fits here: 50 points for the first membership season, 10 per further season, and each game 5 points for members, 1 for others.</li>
+    <li><b>Contacts on demand:</b> the Eventim customer endpoint (<code>GetCustomerDataInhouseInt?CustomerNo=…</code>) refreshes one fan's email and phones when an admin asks. One call per customer, so not a nightly job.</li>
+  </ol>
+  <p class="muted">Credentials for Eventim (username / password per club), Fortress (basic auth + app id + API key per stadium) and WooCommerce (a read-only consumer key / secret from WooCommerce → Settings → Advanced → REST API, plus the webhook secret) live in a secret store, never in the database. The Eventim customer endpoint is on a non-standard port and is expected to be IP-whitelisted; WooCommerce must be called over HTTPS.</p>
+  <p class="muted">Club, AdminUser, Tag, Campaign, MessageLog, ConsentLog, ImportJob and AuditLog already exist and stay as they are. Subscription is replaced by FanSeason; Shuttle is dropped. ActivityEvent stays: it is the dashboard's recent-activity list, written by imports, campaign runs, the game sync and the score job.</p>
+  <p class="muted">Against today's Prisma schema, Fan keeps <code>legacyId</code> and <code>lastActivityAt</code>, renames <code>memberSince → firstSeenAt</code>, and gains <code>source</code> and <code>enrichedAt</code>; Game gains <code>capacity</code>, <code>goalsFor</code>, <code>goalsAgainst</code>; StoreOrderItem is new.</p>
+
+  <h2>All columns</h2>
+  <div id="cols"></div>
+</div>
+
+<script>
+(function () {
+  // [name, type, keys, note]  keys: "PK" | "UK" | "FK:Table" | ""
+  const TABLES = [
+    { name: "Fan", kind: "core", show: ["id", "customerId", "firstName", "lastName", "email", "mobile", "phone", "town", "birthday", "status", "source", "engagementScore", "lastActivityAt"],
+      cols: [
+        ["id", "text", "PK"],
+        ["clubId", "text", "FK:Club"],
+        ["customerId", "text", "UK", "Excel \"Customer no.\" — the ticketing customer number"],
+        ["firstName", "text", "", "Excel"], ["lastName", "text", "", "Excel"],
+        ["email", "text", "", "Excel"],
+        ["oldEmail", "text", "", "previous email when a newer file changed it"],
+        ["legacyId", "text", "", "old CRM id (the club CSV's oldId)"],
+        ["mobile", "text", "", "Excel · 05X-XXXXXXX"], ["phone", "text", "", "Excel · landline"],
+        ["town", "text", "", "Excel · city pie and map"], ["street", "text", "", "Excel"], ["houseNo", "text", "", "Excel"], ["postalCode", "text", "", "Excel"],
+        ["birthday", "date", "", "Excel"],
+        ["status", "enum", "", "ACTIVE · INACTIVE · ARCHIVED"],
+        ["source", "enum", "", "EXCEL · EVENTIM · STORE · APP · MANUAL — where the row was first created"],
+        ["enrichedAt", "timestamptz", "", "null = shell fan created by a sync, contacts not yet pulled"],
+        ["emailOptIn", "boolean", ""], ["smsOptIn", "boolean", ""], ["whatsappOptIn", "boolean", ""], ["pushOptIn", "boolean", ""],
+        ["unsubscribedAt", "timestamptz", "", "global marketing stop"],
+        ["engagementScore", "int", "", "0–100, computed nightly"],
+        ["appLastLoginAt", "timestamptz", "", "copied from AppUser"],
+        ["firstSeenAt", "date", "", "\"member since\": earliest season seat, ticket or order (computed)"],
+        ["lastActivityAt", "timestamptz", "", "latest ticket, scan, order or app login (computed)"],
+        ["importedAt", "timestamptz", ""], ["deletedAt", "timestamptz", "", "soft delete"],
+        ["createdAt", "timestamptz", ""], ["updatedAt", "timestamptz", ""]],
+      foot: "Unique (clubId, customerId). Indexes on town, email, mobile, engagementScore." },
+    { name: "Season", kind: "core",
+      cols: [["id", "text", "PK"], ["clubId", "text", "FK:Club"], ["name", "text", "UK", "\"2026/27\""], ["startDate", "date", ""], ["endDate", "date", ""], ["isCurrent", "boolean", ""]],
+      foot: "Unique (clubId, name)." },
+    { name: "FanSeason", kind: "core", show: ["id", "fanId", "seasonId", "source", "series", "tier", "seatsCount", "seats", "seatsTotalPrice", "seasonTickets", "tickets", "totalSales", "status"],
+      cols: [
+        ["id", "text", "PK"], ["fanId", "text", "FK:Fan"], ["seasonId", "text", "FK:Season"],
+        ["source", "enum", "", "both · season details only · seats only"],
+        ["series", "text", "", "Excel"], ["tier", "enum", "", "REGULAR · SILVER · VIP — mapped from series by a lookup; the מנוי type in every table"], ["seatsCount", "int", "", "Excel · > 0 = subscriber"], ["seats", "text", "", "Excel · \"G10 · row 18 · seat 1; …\""],
+        ["blocks", "text", "", "Excel"], ["seatStatus", "text", "", "Excel"], ["seatsTotalPrice", "numeric", "", "Excel"], ["currency", "text", "", "Excel"],
+        ["orders", "text", "", "Excel"], ["invoices", "text", "", "Excel"], ["payType", "text", "", "Excel"], ["numberOfYears", "int", "", "Excel"],
+        ["seasonTickets", "int", "", "details: Number of season tickets"], ["seasonTicketSales", "numeric", "", "details: Sales volume - season tickets"],
+        ["lastSeasonTicketAt", "date", "", "details: Last Sea.Tic. purchase"], ["tickets", "int", "", "details: No. of tickets"], ["lastTicketAt", "date", "", "details: Last ticket sale"],
+        ["totalSales", "numeric", "", "details: Total sales"],
+        ["status", "enum", "", "subscriber · new · returned · churned · none — computed vs. previous season"],
+        ["cardNumber", "text", "", "Fortress member card, from FullActiveExtract (optional)"],
+        ["details", "jsonb", "", "any other details: column, kept as is"],
+        ["importedAt", "timestamptz", ""]],
+      foot: "Unique (fanId, seasonId). Indexes on (seasonId, status), (seasonId, seatsCount)." },
+    { name: "Game", kind: "ext", show: ["id", "seasonId", "eventimEventId", "title", "venue", "kickoffAt", "lastFetchTimestampUtc"],
+      cols: [["id", "text", "PK"], ["clubId", "text", "FK:Club"], ["seasonId", "text", "FK:Season", "derived from the date; Eventim has no season"],
+        ["eventimEventId", "text", "UK", "Eventim _ID"], ["title", "text", "", "Eventim Title, e.g. הפועל באר שבע נגד …"],
+        ["venue", "enum", "", "HOME · AWAY — from VenueShortCode"], ["venueName", "text", "", "Eventim VenueName"], ["venueShortCode", "text", ""], ["genre", "text", "", "Eventim Genre"],
+        ["competition", "enum", "", "LEAGUE · CUP · EUROPE · OTHER — set by admin"], ["opponent", "text", "", "set by admin or parsed from title"], ["kickoffAt", "timestamptz", "", "Eventim Date"],
+        ["status", "enum", "", "SCHEDULED · PLAYED · CANCELLED"],
+        ["capacity", "int", "", "stadium capacity (Turner 16,126); default per venue, editable"],
+        ["goalsFor", "int", "", "result — admin or results feed; Eventim has none"], ["goalsAgainst", "int", ""],
+        ["fortressProductCode", "text", "", "SHF_EVENT_<eventimEventId>"],
+        ["lastFetchTimestampUtc", "text", "", "NewTimestampUTC from the last FetchTicketData — the sync cursor"],
+        ["ticketsSold", "int", "", "computed from Ticket"], ["attendance", "int", "", "computed from Attendance"], ["syncedAt", "timestamptz", ""]],
+      foot: "Unique (clubId, eventimEventId). Index on (seasonId, kickoffAt)." },
+    { name: "Attendance", kind: "ext", show: ["id", "fanId", "customerId", "gameId", "attended", "scannedAt", "turnstile"],
+      cols: [["id", "text", "PK"], ["fanId", "text", "FK:Fan"], ["customerId", "text", "", "from the ticket the barcode belongs to"], ["gameId", "text", "FK:Game"],
+        ["attended", "boolean", "", "null = no scan data for this game yet"], ["barcode", "text", "", "Fortress mediaIdentifier = Eventim BC"],
+        ["turnstile", "text", "", "Fortress turnstile / gate code"], ["scannedAt", "timestamptz", ""], ["syncedAt", "timestamptz", ""]],
+      foot: "Unique (fanId, gameId). Filled from the Fortress scan log once that endpoint is available." },
+    { name: "Ticket", kind: "ext", show: ["id", "fanId", "customerId", "gameId", "barcode", "orderId", "price", "status", "isSubscription"],
+      cols: [["id", "text", "PK"], ["fanId", "text", "FK:Fan"], ["customerId", "text", "", "Eventim CustNr"], ["gameId", "text", "FK:Game"],
+        ["barcode", "text", "", "Eventim BC; season-ticket barcodes do not end with the event id"], ["orderId", "text", "", "Eventim OID — group by it for orders"],
+        ["row", "text", "", "Eventim Row"], ["seat", "text", "", "Eventim Seat"], ["area", "text", "", "Eventim AreaText"], ["entrance", "text", "", "Eventim EntryText"],
+        ["price", "numeric", "", "Eventim Price"], ["salesType", "text", "", "Eventim SalesType (price type code)"], ["salesChannel", "text", "", "Eventim MdtNr; 6000 is skipped"],
+        ["status", "enum", "", "VALID · CANCELLED — Eventim Status V / S"], ["cancelReason", "text", "", "Eventim CReason, e.g. Reprint"],
+        ["bookedAt", "timestamptz", "", "Eventim BDate"], ["isSubscription", "boolean", "", "Eventim SubscriptionFlag"], ["printAtHome", "boolean", "", "Eventim PrintAtHomeFlag"],
+        ["syncedAt", "timestamptz", ""]],
+      foot: "Unique (gameId, barcode). Indexes on (fanId, gameId), (gameId, status), (orderId)." },
+    { name: "StoreOrder", kind: "ext", show: ["id", "fanId", "wooOrderId", "orderNumber", "wooCustomerId", "customerNumber", "customerName", "email", "phone", "matchedBy", "status", "total"],
+      cols: [["id", "text", "PK"], ["clubId", "text", "FK:Club"], ["fanId", "text", "FK:Fan", "empty until matched"],
+        ["wooOrderId", "int", "UK", "WooCommerce id — upsert key"], ["orderNumber", "text", "", "WooCommerce number (what the club sees in WP admin)"],
+        ["wooCustomerId", "int", "", "WooCommerce customer_id; 0 / null = guest checkout"],
+        ["customerNumber", "text", "", "order meta _club_customer_number, if the club adds the field"],
+        ["customerName", "text", "", "billing first_name + last_name"], ["email", "text", "", "billing.email, lower-cased"], ["phone", "text", "", "billing.phone, normalized 05X-XXXXXXX"],
+        ["billingCity", "text", "", "billing.city — matching hint and geography"],
+        ["matchedBy", "enum", "", "CUSTOMER_NUMBER · EMAIL · PHONE · NONE"],
+        ["status", "enum", "", "PAID · PENDING · REFUNDED · CANCELLED — from wooStatus"], ["wooStatus", "text", "", "raw: completed · processing · on-hold · pending · refunded · cancelled · failed"],
+        ["channel", "enum", "", "ONLINE · POS · ADMIN — from created_via"], ["paymentMethod", "text", "", "payment_method_title"],
+        ["orderedAt", "timestamptz", "", "date_created_gmt"], ["paidAt", "timestamptz", "", "date_paid_gmt"], ["modifiedAt", "timestamptz", "", "date_modified_gmt — the sync cursor"],
+        ["total", "numeric", "", "order total incl. shipping and tax"], ["itemsTotal", "numeric", "", "sum of line totals — merchandise revenue"], ["refundTotal", "numeric", "", "sum of refunds"], ["currency", "text", "", "ILS"],
+        ["syncedAt", "timestamptz", ""]],
+      foot: "Unique (clubId, wooOrderId). Indexes on (fanId, orderedAt), (clubId, email), (clubId, matchedBy), (clubId, modifiedAt)." },
+    { name: "StoreOrderItem", kind: "ext", show: ["id", "orderId", "wooLineItemId", "productId", "sku", "name", "category", "qty", "unitPrice", "lineTotal"],
+      cols: [["id", "text", "PK"], ["orderId", "text", "FK:StoreOrder"], ["wooLineItemId", "int", "", "line_items[].id — upsert key inside the order"],
+        ["productId", "int", "", "line_items[].product_id"], ["variationId", "int", "", "line_items[].variation_id (size / colour)"],
+        ["sku", "text", ""], ["name", "text", "", "as sold"],
+        ["category", "text", "", "first category of the product, looked up from /products at sync"],
+        ["qty", "int", "", "quantity"], ["unitPrice", "numeric", "", "price"], ["lineTotal", "numeric", "", "total after discounts"]],
+      foot: "Unique (orderId, wooLineItemId). Indexes on (productId), (sku). Top products, categories and monthly revenue group by this table." },
+    { name: "AppUser", kind: "ext", show: ["id", "fanId", "appUserId", "customerId", "email", "phone", "matchedBy", "lastLoginAt"],
+      cols: [["id", "text", "PK"], ["clubId", "text", "FK:Club"], ["fanId", "text", "FK:Fan", "empty until matched"], ["appUserId", "text", "UK", "the app's user id"],
+        ["customerId", "text", "", "if the fan entered it in the app"], ["email", "text", ""], ["phone", "text", ""],
+        ["matchedBy", "enum", "", "CUSTOMER_ID · EMAIL · PHONE · NONE"], ["platform", "enum", "", "IOS · ANDROID"], ["pushToken", "text", ""], ["pushEnabled", "boolean", ""],
+        ["lastLoginAt", "timestamptz", "", "copied to Fan.appLastLoginAt"], ["logins30d", "int", ""], ["sessions30d", "int", ""], ["avgSessionMin", "numeric", "", "average session length, last 30 days"], ["lastScreen", "text", ""], ["syncedAt", "timestamptz", ""]],
+      foot: "Unique (clubId, appUserId)." },
+  ];
+
+  const DIAGRAM = {
+    aria: "Fan in the middle; FanSeason and Game link to Season; Attendance and Ticket link to Fan and Game; StoreOrder and AppUser link to Fan; StoreOrderItem links to StoreOrder",
+    boxes: [["Season", 330, 0], ["FanSeason", 0, 180], ["Fan", 330, 180], ["Attendance", 660, 180], ["Ticket", 660, 360], ["Game", 990, 180], ["AppUser", 0, 480], ["StoreOrder", 330, 480], ["StoreOrderItem", 660, 640]],
+    links: [
+      ["FanSeason.seasonId", "top:0.5", "left:0.5"],
+      ["FanSeason.fanId", "right:0.3", "left:0.3"],
+      ["Game.seasonId", "top:0.5", "right:0.5"],
+      ["Attendance.fanId", "left:0.5", "right:0.25"],
+      ["Attendance.gameId", "right:0.5", "left:0.4"],
+      ["Ticket.fanId", "left:0.3", "right:0.8"],
+      ["Ticket.gameId", "right:0.3", "left:0.9"],
+      ["StoreOrder.fanId", "top:0.5", "bottom:0.5"],
+      ["AppUser.fanId", "top:0.5", "bottom:0.15"],
+      ["StoreOrderItem.orderId", "left:0.3", "right:0.7"]]
+  };
+
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const T = {};
+  TABLES.forEach((t) => {
+    t.cols = t.cols.map(([name, type, keys, note]) => {
+      const k = (keys || "").split(" ").filter(Boolean); const fk = k.find((x) => x.startsWith("FK:"));
+      return { name, type, pk: k.includes("PK"), uk: k.includes("UK"), fk: fk ? fk.slice(3) : null, note: note || "" };
+    });
+    T[t.name] = t;
+  });
+  const keyLabel = (c) => [c.pk && "PK", c.fk && "FK", c.uk && "UK"].filter(Boolean).join(" ");
+
+  // ── diagram ──────────────────────────────────────────────────────────────
+  const W = 250, RH = 16, HH = 30, PB = 6;
+  const shown = (t) => t.show ? t.cols.filter((c) => t.show.includes(c.name)) : t.cols;
+  function anchor(b, spec) {
+    const [side, f] = spec.split(":"); const fr = f == null ? 0.5 : +f;
+    if (side === "left") return [b.x, b.y + b.h * fr];
+    if (side === "right") return [b.x + b.w, b.y + b.h * fr];
+    if (side === "top") return [b.x + b.w * fr, b.y];
+    return [b.x + b.w * fr, b.y + b.h];
+  }
+  function renderDiagram(spec) {
+    const boxes = spec.boxes.map(([name, x, y]) => {
+      const t = T[name]; const cols = shown(t); const more = t.cols.length - cols.length;
+      return { name, t, x, y, w: W, cols, more, h: HH + (cols.length + (more ? 1 : 0)) * RH + PB };
+    });
+    const B = {}; boxes.forEach((b) => { B[b.name] = b; });
+    const width = Math.max(...boxes.map((b) => b.x + b.w)) + 16, height = Math.max(...boxes.map((b) => b.y + b.h)) + 16;
+    let s = `<svg class="er" viewBox="-8 -8 ${width} ${height}" role="img" aria-label="${esc(spec.aria)}"><defs>
+      <marker id="many" markerWidth="14" markerHeight="14" refX="0" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L12 7 L0 13 M0 7 L12 7" fill="none" stroke="currentColor" stroke-width="1.2"/></marker>
+      <marker id="one" markerWidth="14" markerHeight="14" refX="13" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M6 1 L6 13" fill="none" stroke="currentColor" stroke-width="1.6"/></marker></defs>`;
+    let labels = "";
+    spec.links.forEach(([ref, from, to]) => {
+      const [tn, cn] = ref.split("."); const col = T[tn].cols.find((c) => c.name === cn);
+      const a = anchor(B[tn], from), b = anchor(B[col.fk], to);
+      s += `<path class="link" d="M${a[0]} ${a[1]} L${b[0]} ${b[1]}" marker-start="url(#many)" marker-end="url(#one)"/>`;
+      labels += `<text class="lbl" x="${(a[0] + b[0]) / 2}" y="${(a[1] + b[1]) / 2 - 4}" text-anchor="middle">${esc(cn)}</text>`;
+    });
+    boxes.forEach((b) => {
+      s += `<g class="${b.t.kind}"><rect class="bg" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="6"/>`;
+      s += `<path class="hd" d="M${b.x + 6} ${b.y} h${b.w - 12} a6 6 0 0 1 6 6 v${HH - 6} h-${b.w} v-${HH - 6} a6 6 0 0 1 6 -6 z"/>`;
+      s += `<text class="name" x="${b.x + 10}" y="${b.y + 20}">${esc(b.name)}</text>`;
+      if (b.t.kind === "ext") s += `<text class="badge" x="${b.x + b.w - 10}" y="${b.y + 20}" text-anchor="end">external</text>`;
+      s += `<line class="sep" x1="${b.x}" y1="${b.y + HH}" x2="${b.x + b.w}" y2="${b.y + HH}"/>`;
+      b.cols.forEach((c, i) => {
+        const y = b.y + HH + 12 + i * RH;
+        s += `<text class="key" x="${b.x + 10}" y="${y}">${keyLabel(c)}</text><text x="${b.x + 36}" y="${y}">${esc(c.name)}</text><text class="badge" x="${b.x + b.w - 10}" y="${y}" text-anchor="end">${esc(c.type)}</text>`;
+      });
+      if (b.more) s += `<text class="more" x="${b.x + 36}" y="${b.y + HH + 12 + b.cols.length * RH}">+ ${b.more} more columns</text>`;
+      s += `</g>`;
+    });
+    return s + labels + `</svg>`;
+  }
+  document.getElementById("er").innerHTML = renderDiagram(DIAGRAM);
+
+  // ── full column lists (collapsed) ────────────────────────────────────────
+  document.getElementById("cols").innerHTML = TABLES.map((t) => `
+    <details id="t-${t.name}">
+      <summary><span>${t.name}</span><span class="p">${t.cols.length} columns</span></summary>
+      <div class="wrap"><table><tbody>${t.cols.map((c) => `<tr><td class="c">${esc(c.name)}</td><td class="t">${esc(c.type)}</td><td class="k">${[c.pk && "PK", c.uk && "UK", c.fk && `FK → ${c.fk}`].filter(Boolean).join(" · ")}</td><td class="n">${esc(c.note)}</td></tr>`).join("")}</tbody></table></div>
+      ${t.foot ? `<div class="foot">${esc(t.foot)}</div>` : ""}
+    </details>`).join("");
+})();
+</script>
+
+<script>document.querySelectorAll("details").forEach((d)=>{ if (matchMedia("print").matches || location.search.includes("print")) d.open = true; }); window.addEventListener("beforeprint",()=>document.querySelectorAll("details").forEach((d)=>d.open=true));</script>
+</body>
+</html>

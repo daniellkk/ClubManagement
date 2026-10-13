@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: clubmanagement-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: club
+      POSTGRES_PASSWORD: club_dev_password
+      POSTGRES_DB: clubmanagement
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:

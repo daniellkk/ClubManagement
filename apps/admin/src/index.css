@@ -1,0 +1,29 @@
+@import "@fontsource-variable/heebo";
+@import "tailwindcss";
+
+/* ── Per-tenant theme (Hapoel Be'er Sheva defaults) ─────────────────────────
+   Swap these at runtime per club; all components use the semantic tokens. */
+:root {
+  --tenant-primary: #dc2626;
+  --tenant-primary-hover: #b91c1c;
+  --tenant-sidebar: #1a1a1a;
+  --tenant-sidebar-hover: #374151;
+}
+
+@theme inline {
+  --color-brand: var(--tenant-primary);
+  --color-brand-hover: var(--tenant-primary-hover);
+  --color-sidebar: var(--tenant-sidebar);
+  --color-sidebar-hover: var(--tenant-sidebar-hover);
+  --color-page: #f8f9fa;
+  --font-sans: "Heebo Variable", "Segoe UI", system-ui, sans-serif;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+body {
+  background-color: var(--color-page);
+  color: var(--color-gray-700);
+}

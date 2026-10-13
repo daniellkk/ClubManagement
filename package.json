@@ -1,0 +1,25 @@
+{
+  "name": "clubmanagement",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Fan club CRM — admin dashboard + API (first tenant: Hapoel Be'er Sheva)",
+  "scripts": {
+    "dev:api": "pnpm --filter @club/api dev",
+    "dev:admin": "pnpm --filter @club/admin dev",
+    "build": "pnpm -r build",
+    "build:api": "pnpm --filter @club/api build",
+    "build:admin": "pnpm --filter @club/admin build",
+    "prisma:generate": "pnpm --filter @club/api prisma:generate",
+    "prisma:migrate": "pnpm --filter @club/api prisma:migrate",
+    "db:up": "docker compose up -d db",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.0",
+    "xlsx": "^0.18.5"
+  }
+}
